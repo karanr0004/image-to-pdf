@@ -1,14 +1,211 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Image to PDF Converter</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pro Image to PDF + Thank You</title>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Roboto&display=swap" rel="stylesheet">
+
+<style>
+/* --- Body & Fonts --- */
+html { scroll-behavior: smooth; }
+body {
+    margin:0;
+    font-family: 'Playfair Display', serif;
+    background:#deb887;
+    color:#3e2f1c;
+}
+
+/* --- Welcome Screen --- */
+#welcome {
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:linear-gradient(to bottom, #d2b48c, #a0522d);
+    color:white;
+    text-align:center;
+}
+#welcome h1 { font-size:2.5em; margin:0; }
+#welcome p { font-size:1.2em; }
+button.scrollBtn {
+    margin-top:20px;
+    padding:10px 20px;
+    background:#8b4513;
+    color:white;
+    border:none;
+    cursor:pointer;
+    font-size:1em;
+    border-radius:8px;
+    box-shadow:2px 2px 5px rgba(0,0,0,0.2);
+    transition:0.3s all;
+}
+button.scrollBtn:hover { 
+    background:#5c3317; 
+    transform:translateY(-2px);
+    box-shadow:3px 3px 8px rgba(0,0,0,0.3);
+}
+
+/* --- Main Site --- */
+main { padding:20px; }
+input, select, button { margin:10px 0; padding:10px; width:100%; max-width:400px; }
+.gallery { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
+.gallery .img-container { position:relative; }
+.gallery img { width:100px; height:100px; object-fit:cover; border:1px solid #3e2f1c; border-radius:5px; transition:0.3s all; }
+.gallery img:hover { transform:scale(1.1); box-shadow:0 0 10px rgba(0,0,0,0.3); }
+.delete-btn { position:absolute; top:-5px; right:-5px; background:red; color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px; }
+button.convert { background:#8b4513; color:white; border:none; cursor:pointer; width:auto; padding:10px 20px; border-radius:8px; box-shadow:2px 2px 5px rgba(0,0,0,0.2); transition:0.3s all; }
+button.convert:hover { background:#5c3317; transform:translateY(-2px); box-shadow:3px 3px 8px rgba(0,0,0,0.3); }
+input[type=text]{ width:100%; max-width:400px; padding:8px; }
+
+/* --- Thank You Overlay --- */
+#thankYouOverlay {
+    display:none;
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:linear-gradient(to bottom, #d2b48c, #a0522d);
+    color:white; text-align:center; z-index:9999;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    opacity:0; transition:opacity 0.5s ease;
+}
+#thankYouOverlay.show { opacity:1; }
+#thankYouOverlay img { width:200px; max-width:80%; border-radius:10px; }
+#thankYouOverlay h1 { font-size:2em; margin:20px 0 10px 0; }
+#thankYouOverlay button { padding:10px 20px; font-size:1em; border:none; background:#8b4513; color:white; border-radius:5px; cursor:pointer; }
+#thankYouOverlay button:hover { background:#5c3317; }
+</style>
 </head>
-<body style="text-align:center; font-family:sans-serif;">
-  <h1>Image to PDF Converter</h1>
-  <input type="file" id="imageInput" multiple>
-  <br><br>
-  <button onclick="alert('PDF convert feature coming soon!')">
-    Convert to PDF
-  </button>
+<body>
+
+<!-- Welcome Splash Screen -->
+<div id="welcome">
+    <h1>🌲 Pro Image to PDF 🌲</h1>
+    <p>Welcome! Scroll down to start converting and editing your images.</p>
+    <button class="scrollBtn" onclick="scrollDown()">Start</button>
+</div>
+
+<main id="mainSite" style="display:none;">
+    <h2>Upload Your Images</h2>
+    <input type="file" id="images" accept="image/*" multiple>
+    <div class="gallery" id="gallery"></div>
+
+    <label>PDF Filename:</label>
+    <input type="text" id="pdfName" placeholder="images.pdf">
+
+    <label>Page Size:</label>
+    <select id="pageSize">
+        <option value="a4">A4</option>
+        <option value="letter">Letter</option>
+    </select>
+
+    <label>Add Text to PDF (optional):</label>
+    <input type="text" id="pdfText" placeholder="Your text here">
+
+    <button class="convert" id="convert">Convert to PDF & Download</button>
+</main>
+
+<!-- Thank You Overlay -->
+<div id="thankYouOverlay">
+    <img src="https://i.ibb.co/5r3mj1r/namaste-cartoon.png" alt="Namaste Woman">
+    <h1>Thank You for Using Classic Image-to-PDF!</h1>
+    <button onclick="resetSite()">Convert Again</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// Scroll down from welcome
+function scrollDown() {
+    document.getElementById('welcome').style.display = 'none';
+    document.getElementById('mainSite').style.display = 'block';
+}
+
+// Gallery & file handling
+const gallery = document.getElementById('gallery');
+const imagesInput = document.getElementById('images');
+let files = [];
+
+function renderGallery() {
+    gallery.innerHTML = '';
+    files.forEach((file, index) => {
+        const container = document.createElement('div');
+        container.className = 'img-container';
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        const btn = document.createElement('button');
+        btn.innerText = 'X';
+        btn.className = 'delete-btn';
+        btn.onclick = ()=> { files.splice(index,1); renderGallery(); };
+        container.appendChild(img);
+        container.appendChild(btn);
+        gallery.appendChild(container);
+    });
+}
+
+imagesInput.addEventListener('change', (e) => {
+    files = Array.from(e.target.files);
+    renderGallery();
+});
+
+// Convert to PDF with compression and text
+document.getElementById('convert').addEventListener('click', async () => {
+    if(files.length === 0){ alert("Select images first"); return; }
+    const { jsPDF } = window.jspdf;
+
+    const pageSize = document.getElementById('pageSize').value;
+    let pdf = new jsPDF({
+        orientation:'portrait',
+        unit:'mm',
+        format: pageSize
+    });
+
+    const filename = document.getElementById('pdfName').value || 'images.pdf';
+    const addText = document.getElementById('pdfText').value;
+
+    for(let i=0; i<files.length; i++){
+        const img = await new Promise(resolve => {
+            const tempImg = new Image();
+            tempImg.onload = () => resolve(tempImg);
+            tempImg.src = URL.createObjectURL(files[i]);
+        });
+
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        let ratio = Math.min((pageWidth-20)/img.width,(pageHeight-30)/img.height,1);
+
+        pdf.addImage(img,'JPEG',10,10,img.width*ratio,img.height*ratio,'','FAST');
+
+        if(addText){
+            pdf.setFont('helvetica','bold');
+            pdf.setFontSize(16);
+            pdf.setTextColor(60,30,10);
+            pdf.text(addText, 10, pageHeight - 10);
+        }
+
+        if(i<files.length-1) pdf.addPage();
+    }
+
+    pdf.save(filename);
+
+    // Show Thank You overlay with fade-in
+    const overlay = document.getElementById('thankYouOverlay');
+    document.getElementById('mainSite').style.display = 'none';
+    overlay.style.display = 'flex';
+    setTimeout(()=> overlay.classList.add('show'), 10);
+});
+
+// Reset to main site for new conversion
+function resetSite(){
+    const overlay = document.getElementById('thankYouOverlay');
+    overlay.classList.remove('show');
+    setTimeout(()=> overlay.style.display='none', 500);
+    document.getElementById('mainSite').style.display = 'block';
+    files = [];
+    imagesInput.value = '';
+    renderGallery();
+}
+</script>
+
 </body>
 </html>
